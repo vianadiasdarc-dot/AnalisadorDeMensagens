@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisador de Golpes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1620;
+    --ink-2:#141F2C;
+    --paper:#F4F5F1;
+    --steel:#3A4756;
+    --steel-soft:#8A97A6;
+    --amber:#E8A33D;
+    --red:#D14D42;
+    --green:#4FA97C;
+    --line: rgba(244,245,241,0.10);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1100px 500px at 15% -10%, rgba(232,163,61,0.08), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(79,169,124,0.06), transparent 55%),
+      var(--ink);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{
+    max-width:880px;
+    margin:0 auto;
+    padding:56px 24px 80px;
+  }
+
+  /* ---------- Header ---------- */
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--amber);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:7px;height:7px;border-radius:50%;
+    background:var(--amber);
+    box-shadow:0 0 0 4px rgba(232,163,61,0.15);
+    animation:pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:0.35;}
+  }
+
+  h1{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:800;
+    font-size:clamp(32px, 5vw, 52px);
+    line-height:1.05;
+    letter-spacing:-0.01em;
+    margin:0 0 14px;
+  }
+  h1 span{color:var(--steel-soft);}
+
+  .lede{
+    font-size:16px;
+    line-height:1.6;
+    color:#C7CDD5;
+    max-width:56ch;
+    margin:0 0 44px;
+  }
+
+  /* ---------- Console (input) ---------- */
+  .console{
+    border:1px solid var(--line);
+    background:var(--ink-2);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .console-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 16px;
+    border-bottom:1px solid var(--line);
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:var(--steel-soft);
+  }
+  .dots{display:flex;gap:6px;}
+  .dots span{width:9px;height:9px;border-radius:50%;background:var(--steel);}
+
+  textarea{
+    width:100%;
+    min-height:140px;
+    resize:vertical;
+    border:none;
+    background:transparent;
+    color:var(--paper);
+    font-family:'JetBrains Mono', monospace;
+    font-size:14.5px;
+    line-height:1.7;
+    padding:18px 20px;
+    outline:none;
+  }
+  textarea::placeholder{color:#4C5A6B;}
+
+  .console-footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 16px;
+    border-top:1px solid var(--line);
+  }
+  .hint{
+    font-size:12.5px;
+    color:var(--steel-soft);
+  }
+
+  button.analisar{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    color:var(--ink);
+    background:var(--amber);
+    border:none;
+    padding:12px 22px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:transform 0.15s ease, background 0.2s ease;
+  }
+  button.analisar:hover{background:#f0b661;}
+  button.analisar:active{transform:scale(0.97);}
+  button.analisar:focus-visible{outline:2px solid var(--paper); outline-offset:3px;}
+
+  /* ---------- Results ---------- */
+  .results{
+    margin-top:36px;
+    display:none;
+  }
+  .results.show{display:block;}
+
+  .result-grid{
+    display:grid;
+    grid-template-columns:220px 1fr;
+    gap:32px;
+    align-items:start;
+  }
+  @media (max-width:640px){
+    .result-grid{grid-template-columns:1fr;}
+  }
+
+  /* gauge */
+  .gauge-card{
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--ink-2);
+    padding:22px;
+    text-align:center;
+  }
+  .gauge{position:relative; width:180px; height:100px; margin:0 auto 14px;}
+  .gauge svg{width:100%; height:100%; overflow:visible;}
+  .needle{
+    transform-origin:90px 90px;
+    transition:transform 0.7s cubic-bezier(.34,1.56,.64,1);
+  }
+  .score-readout{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:800;
+    font-size:34px;
+    margin-top:-8px;
+  }
+  .score-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    margin-top:6px;
+  }
+
+  /* flags log */
+  .log-title{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--steel-soft);
+    margin:0 0 12px;
+  }
+  .flag{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 0;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+  }
+  .flag:last-child{border-bottom:none;}
+  .flag-weight{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size:13px;
+    min-width:34px;
+    text-align:center;
+    padding:2px 0;
+    border-radius:4px;
+    background:rgba(232,163,61,0.15);
+    color:var(--amber);
+    flex-shrink:0;
+  }
+  .flag-body b{color:var(--paper);}
+  .flag-cat{
+    color:var(--steel-soft);
+    font-size:12px;
+    font-family:'JetBrains Mono', monospace;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+  .empty-flags{
+    color:var(--steel-soft);
+    font-size:14px;
+    padding:8px 0;
+  }
+
+  /* verdict banner */
+  .verdict{
+    margin-top:28px;
+    padding:16px 18px;
+    border-radius:8px;
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.02em;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .verdict.low{background:rgba(79,169,124,0.12); color:var(--green); border:1px solid rgba(79,169,124,0.3);}
+  .verdict.mid{background:rgba(232,163,61,0.12); color:var(--amber); border:1px solid rgba(232,163,61,0.3);}
+  .verdict.high{background:rgba(209,77,66,0.14); color:#ff8a7f; border:1px solid rgba(209,77,66,0.35);}
+
+  /* legend */
+  .legend{
+    margin-top:64px;
+    padding-top:32px;
+    border-top:1px solid var(--line);
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:20px;
+  }
+  @media (max-width:640px){ .legend{grid-template-columns:1fr;} }
+  .legend h3{
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    margin:0 0 8px;
+    color:var(--paper);
+  }
+  .legend p{
+    margin:0;
+    font-size:13px;
+    color:var(--steel-soft);
+    line-height:1.6;
+  }
+
+  footer{
+    margin-top:56px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:var(--steel);
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">console de verificação</div>
+  <h1>Analisador<br><span>de Golpes.</span></h1>
+  <p class="lede">Cole a mensagem, SMS ou link que você recebeu. O motor procura por palavras de pressão, jargão financeiro e menções a bancos sem o domínio oficial — os mesmos sinais que um golpista usa para te apressar.</p>
+
+  <div class="console">
+    <div class="console-bar">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <span>entrada.txt</span>
+    </div>
+    <textarea id="mensagem" placeholder="Ex: Sua conta Itau foi bloqueada, clique no link e valide seu cadastro agora..."></textarea>
+    <div class="console-footer">
+      <span class="hint">Nenhuma mensagem é enviada — a análise roda aqui no navegador.</span>
+      <button class="analisar" id="btnAnalisar">Analisar mensagem</button>
+    </div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="result-grid">
+
+      <div class="gauge-card">
+        <div class="gauge">
+          <svg viewBox="0 0 180 100">
+            <path d="M10,90 A80,80 0 0,1 170,90" fill="none" stroke="var(--green)" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+            <path d="M10,90 A80,80 0 0,1 90,10" fill="none" stroke="var(--amber)" stroke-width="14" stroke-linecap="round" opacity="0"/>
+            <path d="M50,20 A80,80 0 0,1 170,90" fill="none" stroke="var(--red)" stroke-width="0" opacity="0"/>
+            <defs>
+              <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="var(--green)"/>
+                <stop offset="50%" stop-color="var(--amber)"/>
+                <stop offset="100%" stop-color="var(--red)"/>
+              </linearGradient>
+            </defs>
+            <path d="M10,90 A80,80 0 0,1 170,90" fill="none" stroke="url(#arcGrad)" stroke-width="14" stroke-linecap="round"/>
+            <line id="needle" class="needle" x1="90" y1="90" x2="90" y2="22" stroke="var(--paper)" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="90" cy="90" r="7" fill="var(--paper)"/>
+          </svg>
+        </div>
+        <div class="score-readout" id="scoreReadout">0</div>
+        <div class="score-label" id="scoreLabel" style="color:var(--green)">baixo risco</div>
+      </div>
+
+      <div>
+        <p class="log-title">Sinais detectados</p>
+        <div id="flagsList"></div>
+      </div>
+
+    </div>
+
+    <div class="verdict low" id="verdict"></div>
+  </div>
+
+  <div class="legend">
+    <div>
+      <h3 style="color:var(--amber)">Urgência · peso 2</h3>
+      <p>"urgente", "agora", "imediato" — linguagem feita pra te tirar da calma antes de você pensar.</p>
+    </div>
+    <div>
+      <h3 style="color:var(--amber)">Financeiro · peso 4</h3>
+      <p>"pix", "empréstimo", "conta bloqueada" — pedidos de dinheiro ou dados bancários fora de contexto.</p>
+    </div>
+    <div>
+      <h3 style="color:var(--amber)">Segurança · peso 5</h3>
+      <p>"senha", "token", "validar" — tentativas de te levar a entregar credenciais de acesso.</p>
+    </div>
+  </div>
+
+  <footer>Baseado nas mesmas categorias e pesos do motor original em Java.</footer>
+</div>
+
+<script>
+(function(){
+  const palavrasSuspeitas = {
+    "Urgência": ["urgente", "imediato", "agora", "rapido"],
+    "Financeiro": ["pix", "conta bloqueada", "emprestimo", "extrato", "cartao"],
+    "Seguranca": ["senha", "token", "atualizar", "clique", "validar"]
+  };
+
+  const pesosCategoria = { "Urgência": 2, "Financeiro": 4, "Seguranca": 5 };
+
+  const linksCopia = {
+    "Itau": "itau.com.br",
+    "bb": "bb.com.br",
+    "nubank": "nubank.com.br",
+    "caixa": "caixa.gov.br"
+  };
+
+  const MAX_GAUGE = 20; // pontuação que corresponde ao fim da escala visual
+
+  function analisar(mensagem){
+    const msg = mensagem.toLowerCase();
+    let pontuacaoTotal = 0;
+    const flags = [];
+
+    for (const categoria in palavrasSuspeitas){
+      for (const palavra of palavrasSuspeitas[categoria]){
+        if (msg.includes(palavra.toLowerCase())){
+          const peso = pesosCategoria[categoria] || 0;
+          pontuacaoTotal += peso;
+          flags.push({ peso, categoria, texto: `Palavra suspeita encontrada: "${palavra}"` });
+        }
+      }
+    }
+
+    for (const banco in linksCopia){
+      const dominio = linksCopia[banco];
+      if (msg.includes(banco.toLowerCase()) && !msg.includes(dominio.toLowerCase())){
+        pontuacaoTotal += 5;
+        flags.push({ peso: 5, categoria: "Link", texto: `Menciona "${banco}" mas não usa o domínio oficial (${dominio})` });
+      }
+    }
+
+    return { pontuacaoTotal, flags };
+  }
+
+  function classificar(pontos){
+    if (pontos >= 8) return { nivel:"high", texto:"⚠ Alto risco de golpe", cor:"var(--red)" };
+    if (pontos >= 3) return { nivel:"mid", texto:"Risco moderado — tenha cautela", cor:"var(--amber)" };
+    return { nivel:"low", texto:"Baixo risco aparente", cor:"var(--green)" };
+  }
+
+  const btn = document.getElementById('btnAnalisar');
+  const textarea = document.getElementById('mensagem');
+  const results = document.getElementById('results');
+  const flagsList = document.getElementById('flagsList');
+  const scoreReadout = document.getElementById('scoreReadout');
+  const scoreLabel = document.getElementById('scoreLabel');
+  const needle = document.getElementById('needle');
+  const verdict = document.getElementById('verdict');
+
+  function render(){
+    const mensagem = textarea.value.trim();
+    if (!mensagem) return;
+
+    const { pontuacaoTotal, flags } = analisar(mensagem);
+    const status = classificar(pontuacaoTotal);
+
+    results.classList.add('show');
+
+    // gauge needle: 0 pontos = -90deg (esquerda), MAX_GAUGE = +90deg (direita)
+    const clamped = Math.min(pontuacaoTotal, MAX_GAUGE);
+    const angle = -90 + (clamped / MAX_GAUGE) * 180;
+    needle.style.transform = `rotate(${angle}deg)`;
+
+    scoreReadout.textContent = pontuacaoTotal;
+    scoreReadout.style.color = status.cor;
+    scoreLabel.textContent = status.texto.replace("⚠ ", "");
+    scoreLabel.style.color = status.cor;
+
+    verdict.className = `verdict ${status.nivel}`;
+    verdict.textContent = status.texto;
+
+    flagsList.innerHTML = "";
+    if (flags.length === 0){
+      flagsList.innerHTML = `<div class="empty-flags">Nenhum sinal conhecido encontrado nesta mensagem.</div>`;
+    } else {
+      flags.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'flag';
+        row.innerHTML = `
+          <span class="flag-weight">+${f.peso}</span>
+          <div class="flag-body">
+            <div>${f.texto}</div>
+            <div class="flag-cat">${f.categoria}</div>
+          </div>`;
+        flagsList.appendChild(row);
+      });
+    }
+  }
+
+  btn.addEventListener('click', render);
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) render();
+  });
+})();
+</script>
+</body>
+</html>
